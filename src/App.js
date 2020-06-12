@@ -1,105 +1,99 @@
-import React, { useState, useEffect } from 'react'
-import Blog from './components/Blog'
-import blogService from './services/blogs'
-import {CreateBlog, Login} from './components/Forms'
-import loginService from './services/login'
+import React, { useEffect } from 'react'
+import { CreateBlog, Login } from './components/Forms'
 import Notification from './components/Notification'
 import Togglable from './components/Togglable'
+import BlogList from './components/BlogList'
+import { useDispatch, useSelector } from 'react-redux'
+
+import { initBlogs, newBlog } from './reducers/blogReducer'
+import { successNotif } from './reducers/notificationReducer'
+import { keepLogin } from './reducers/loginReducer'
+
+import Users from './components/Users'
+import User from './components/User'
+import Blog from './components/Blog'
+
+import { Card } from 'react-bootstrap'
+
+
+import {
+	BrowserRouter as Router,
+	Switch, Route
+} from "react-router-dom"
+import { initUsers } from './reducers/userReducer'
+import Menu from './components/Menu'
 
 const App = () => {
-	const [blogs, setBlogs] = useState([])
-	const [user, setUser] = useState(null)
-	const [notification, setNotification] = useState(null)
-	const blogFormRef = React.createRef()
+	const dispatch = useDispatch()
+	const [user, users, blogs] = useSelector(state => [state.user, state.users, state.blogs])
 
 	useEffect(() => {
-		blogService.getAll().then(blogs =>
-			setBlogs(blogs)
-		)
-	}, [])
+		dispatch(initBlogs())
+		dispatch(initUsers())
+	}, [dispatch])
+
+	const blogFormRef = React.createRef()
 
 	useEffect(() => {
 		const loggedUserJSON = window.localStorage.getItem('loggedBlogappUser')
 		if (loggedUserJSON) {
 			const user = JSON.parse(loggedUserJSON)
-			setUser(user)
-			blogService.setToken(user.token)
+			dispatch(keepLogin(user))
 		}
-	}, [])
+	}, [dispatch])
 
-	const logout = () => {
-		window.localStorage.removeItem('loggedBlogappUser')
-		setUser(null)
-	}
-
-	const handleLogin = async (username, password) => {
-		try {
-			const user = await loginService.login({
-				username, password,
-			})
-			blogService.setToken(user.token)
-			window.localStorage.setItem(
-				'loggedBlogappUser', JSON.stringify(user)
-			)
-
-			setUser(user)
-		} catch (exception) {
-			setNotification({ message: 'Wrong username or password', style: 'bad' })
-			setTimeout(() => {
-				setNotification(null)
-			}, 5000)
-		}
-	}
-
-	const createBlog = async newBlog => {
+	const createBlog = async blog => {
 		blogFormRef.current.toggleVisibility()
 
-		const createdBlog = await blogService.create(newBlog)
-		setNotification({ message: `a new blog ${createdBlog.title} by ${createdBlog.author}`, style: 'good' })
-		setTimeout(() => {
-			setNotification(null)
-		}, 5000)
+		dispatch(newBlog(blog))
 
-		setBlogs(blogs.concat(createdBlog))
+		dispatch(successNotif(`a new blog ${blog.title} by ${blog.author}`))
 	}
 
-	const setBlog = async (id, updatedBlog) => {
-		const blog = await blogService.update(id, updatedBlog)
+	const userById = (id) => users.find(u => u.id === id)
+	const blogById = (id) => blogs.find(b => b.id === id)
 
-		setBlogs(blogs.map(b => (b.id === blog.id) ? updatedBlog : b))
-	}
-
-	const removeBlog = async id => {
-		await blogService.remove(id)
-
-		setBlogs(blogs.filter(b => b.id !== id))
-	}
-
-
-	const showBlogs = () => {
-		let sortedBlogs = blogs.sort((b1, b2) => b1.likes - b2.likes)
+	if (user) {
 		return (
-			<div>
-				<h2>Blogs</h2>
-				<Notification m={notification} />
-				<p>{user.name} logged in <button onClick={logout}>logout </button></p>
-
-				<Togglable buttonLabel='new blog' buttonLabel2='cancel' ref={blogFormRef}>
-					<h2>Create new</h2>
-					<CreateBlog createBlog={createBlog} />
-				</Togglable>
-
-				{sortedBlogs.map(blog => <Blog key={blog.id} blog={blog} modifyBlog={setBlog} removeBlog={removeBlog} user={user} />)}
+			<div className="container">
+				<Notification />
+				<Router>
+					<Menu />
+					<Switch>
+						<Route path="/users/:id">
+							<User userById={userById} />
+						</Route>
+						<Route path="/users">
+							<Users />
+						</Route>
+						<Route path="/blogs/:id">
+							<Blog user={user} blogById={blogById} />
+						</Route>
+						<Route path="/">
+							<h2>Blogs</h2>
+							<Togglable buttonLabel='new blog' ref={blogFormRef} class="container-fluid">
+								<Card style={{ width: '40rem', padding: "10px", margin: "2px"}} >
+									<Card.Title>Create new</Card.Title>
+									<Card.Body>
+									<CreateBlog createBlog={createBlog} />
+									</Card.Body>
+								</Card>
+							</Togglable>
+							<BlogList user={user} />
+						</Route>
+					</Switch>
+				</Router>
 			</div>
 		)
+
 	}
 
 	return (
-		<div>
-			{user ? showBlogs()
-				: <Login handleLogin={handleLogin} notification={notification} />}
+		<div className="container">
+			<Login />
 		</div>
 	)
 }
 
 export default App
+

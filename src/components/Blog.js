@@ -1,49 +1,52 @@
-import React, { useState } from 'react'
+import React from 'react'
+import { useDispatch } from 'react-redux'
+import { useParams } from "react-router-dom"
 
-const Blog = ({ blog, modifyBlog, removeBlog, user }) => {
-	const [show, setShow] = useState(false)
+import { likeBlog, removeBlog } from '../reducers/blogReducer'
 
-	const blogStyle = {
-		paddingTop: 10,
-		paddingLeft: 2,
-		border: 'solid',
-		borderWidth: 1,
-		marginBottom: 5
-	}
+import Comments from './Comments'
+import { Table } from 'react-bootstrap'
 
-	const showB = event => {
-		event.preventDefault()
+const Blog = ({ blogById, user }) => {
+	const dispatch = useDispatch()
+	const blog = blogById(useParams().id)
 
-		setShow(!show)
-	}
+	if (!blog) return null
 
 	const increaseLikes = (event) => {
 		event.preventDefault()
 
-		modifyBlog(blog.id, {
-			...blog,
-			likes: blog.likes + 1,
-			user: blog.user
-		})
+		dispatch(likeBlog(blog))
 	}
 
 	const deleteBlog = event => {
 		event.preventDefault()
 
 		let result = window.confirm(`Remove blog ${blog.title} by ${blog.author}?`)
-		if (result) removeBlog(blog.id)
+		if (result) dispatch(removeBlog(blog.id))
 	}
 
 	return (
-		<div style={blogStyle} className = 'blog'>
-			<div>{blog.title} {blog.author} <button id = 'view' onClick={showB}>{show ? 'hide' : 'view'}</button></div>
-			<div style={{ display: show ? '' : 'none' }} className = 'extraInfo'>
-				{blog.url}
-				<div>likes <span className = 'numberOfLikes'>{blog.likes}</span> <button id = 'like' onClick={increaseLikes}>like</button> </div>
-				<div>{blog.user.name}</div>
-				{user.name === blog.user.name ? <button id = 'delete' onClick={deleteBlog}>remove</button> : ''}
-			</div>
-		</div>
+		<>
+		<Table >
+			<tbody className = "blog">
+					<tr>
+						<td><h3>{blog.title} {blog.author}</h3></td>
+					</tr>
+					<tr>
+						<td>
+						<a href={blog.url}>{blog.url}</a>
+						<div>likes <span className='numberOfLikes'>{blog.likes}  </span>
+							<button className="btn btn-info" id='like' onClick={increaseLikes}>like</button> </div>
+						<div>added by {blog.user.name}</div>
+						{user.name === blog.user.name ? <button className="btn btn-info" id='delete' onClick={deleteBlog}>remove</button> : ''}
+						</td>
+					</tr>
+					<tr><td> </td></tr>
+			</tbody>
+		</Table>
+		<Comments blog={blog} />
+		</>
 	)
 }
 
